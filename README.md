@@ -28,7 +28,7 @@ Our full dataset, eie-earth-intelligence-engine, is available at huggingface. To
 
 ### Recreate the baseline flood visualization models
 - The VAEGAN can be retrained with [link](sandbox/BicycleGAN/train_test_baseline.ipynb).
-- The hand-generated baseline can be created with [link](sandbox/Color Baseline/Segment flood_color.ipynb).
+- The hand-generated baseline can be created with [link]("sandbox/Color Baseline/Segment flood_color.ipynb").
 
 ### Evaluate im2im model
 - Evaluate the imagery with eval_main() as called in [evaluate_notebook.ipynb](scripts/evaluate_notebook.ipynb)
@@ -71,10 +71,11 @@ Our full dataset, eie-earth-intelligence-engine, is available at huggingface. To
 
 ## Reference
 ```
-@misc{lutjens2024eie,
+@article{lutjens2024eie,
   author = {Lütjens, Björn and Leshchinskiy, Brandon and Boulais, Océane and Chishtie, Farrukh and Díaz-Rodríguez, Natalia and Masson-Forsythe, Margaux and Mata-Payerro, Ana and Requena-Mesa, Christian and Sankaranarayanan, Aruna and Piña, Aaron and Gal, Yarin and Raïssi, Chedy and Lavin, Alexander and Newman, Dava},
-  title = {Satellite Imagery from the Future: Creating Physically-Consistent Visualizations of Climate Data with Deep Generative Vision Models},
-  publisher = {in submission},
+  journal={IEEE Transactions on Geoscience and Remote Sensing},
+  title={Generating Physically-Consistent Satellite Imagery for Climate Visualizations}, 
   year = {2024},
+  doi={10.1109/TGRS.2024.3493763}
 }
 ```
