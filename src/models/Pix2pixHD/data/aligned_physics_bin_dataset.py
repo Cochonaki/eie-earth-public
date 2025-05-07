@@ -49,16 +49,17 @@ class AlignedPhysicsBinDataset(BaseDataset):
         self.dataset_size = len(self.A_paths) 
       
     def __getitem__(self, index):        
-        ### input A (label maps)
         A_path = self.A_paths[index]
         mask_path = self.mask_paths[index]   
         A = Image.open(A_path)
-        Mask = Image.open(mask_path)                             
+        Mask = Image.open(mask_path)
+
         params = get_params(self.opt, A.size)
         
         if self.opt.label_nc == 0:
             transform_A = get_transform(self.opt, params)
-            transform_mask = get_transform(self.opt, params, grayscale=True,normalize=False)
+            transform_mask = get_transform(self.opt, params, grayscale=True, normalize=False)
+
             if self.opt.augmentation_aggressive:
                 augmentation_A = get_augmentation(fill=0)
                 augmentation_mask = get_augmentation(fill=255)
@@ -66,25 +67,37 @@ class AlignedPhysicsBinDataset(BaseDataset):
                 transform_mask = transforms.Compose([augmentation_mask, transform_mask])
             
             A_tensor = transform_A(A.convert('RGB'))
-            mask_tensor = transform_mask(Mask.convert('RGB'))
-            mask_tensor = torch.where(mask_tensor < 0.5, -torch.ones_like(mask_tensor), torch.ones_like(mask_tensor)) #Make mask binary!
-            all_tensor = cat((mask_tensor,A_tensor), dim=0)
+            mask_tensor = transform_mask(Mask.convert('L')).float()
+
+            mask_tensor = torch.where(mask_tensor < 0.5,
+                                      -torch.ones_like(mask_tensor),
+                                      torch.ones_like(mask_tensor))
+
+            assert mask_tensor.shape[1:] == A_tensor.shape[1:], "Mask and A must have same spatial size"
+            all_tensor = cat((mask_tensor, A_tensor), dim=0)
+            input_label = all_tensor
         else:
             transform_A = get_transform(self.opt, params, method=Image.NEAREST, normalize=False)
             A_tensor = transform_A(A) * 255.0
+            input_label = A_tensor
+            mask_tensor = torch.zeros(1, *A_tensor.shape[1:])  # dummy mask
+
+        # Validate label_nc
+        if self.opt.label_nc > 0:
+            assert self.opt.label_nc == input_label.shape[0], \
+                f"label_nc={self.opt.label_nc} but input has {input_label.shape[0]} channels"
 
         B_tensor = inst_tensor = feat_tensor = 0
-        ### input B (real images)
         if self.opt.isTrain or self.opt.use_encoded_image:
             B_path = self.B_paths[index]   
             B = Image.open(B_path).convert('RGB')
             transform_B = get_transform(self.opt, params)
+
             if self.opt.augmentation_aggressive:
                 augmentation_B = get_augmentation(fill=0)
                 transform_B = transforms.Compose([augmentation_B, transform_B])
             B_tensor = transform_B(B)
                                   
-        ### if using instance maps        
         if not self.opt.no_instance:
             inst_path = self.inst_paths[index]
             inst = Image.open(inst_path)
@@ -96,8 +109,15 @@ class AlignedPhysicsBinDataset(BaseDataset):
                 norm = normalize()
                 feat_tensor = norm(transform_A(feat))                            
 
-        input_dict = {'mask': mask_tensor,'label': all_tensor, 'image_A': A_tensor, 'inst': inst_tensor, 'image': B_tensor, 
-                      'feat': feat_tensor, 'path': A_path}
+        input_dict = {
+            'mask': mask_tensor,
+            'label': input_label,
+            'image_A': A_tensor,
+            'inst': inst_tensor,
+            'image': B_tensor,
+            'feat': feat_tensor,
+            'path': A_path
+        }
 
         return input_dict
 

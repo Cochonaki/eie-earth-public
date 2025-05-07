@@ -6,6 +6,7 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 import random
+from lpips import LPIPS, lpips
 
 class Pix2PixHDModel(BaseModel):
     def name(self):
@@ -19,8 +20,8 @@ class Pix2PixHDModel(BaseModel):
     
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
-        if opt.resize_or_crop != 'none' or not opt.isTrain: # when training at full res this causes OOM
-            torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.enabled = True
         self.isTrain = opt.isTrain
         self.use_features = opt.instance_feat or opt.label_feat
         self.gen_features = self.use_features and not self.opt.load_features
@@ -79,8 +80,7 @@ class Pix2PixHDModel(BaseModel):
             if not opt.no_vgg_loss:             
                 self.criterionVGG = networks.VGGLoss(self.gpu_ids)
             if not opt.no_lpips_loss: 
-                from lpips_pytorch import LPIPS, lpips
-                self.criterionLPIPS = LPIPS(net_type='alex', version='0.1')
+                self.criterionLPIPS = LPIPS(net='alex', version='0.1')
                 # Choose a network type from ['alex', 'squeeze', 'vgg']
                 # Currently, v0.1 is supported
                 
@@ -167,7 +167,9 @@ class Pix2PixHDModel(BaseModel):
         input_preflood_label[:,0,:,:] = 1
         #We flip a coin to decide if we train against the post-flood or pre-flood
         use_pre_flood_prob = random.uniform(0, 1)
-        
+
+        print(f"🚨 GlobalGenerator input shape: {input_label.shape}")
+
         # Fake Generation
         if self.use_features:
             if not self.opt.load_features:
@@ -178,7 +180,12 @@ class Pix2PixHDModel(BaseModel):
                 input_concat = input_preflood_label
             else:
                 input_concat = input_label
-        fake_image = self.netG.forward(input_concat)
+        try:
+            print(f"🚨 input_concat: dtype={input_concat.dtype}, device={input_concat.device}, shape={input_concat.shape}")
+            fake_image = self.netG.forward(input_concat)
+        except RuntimeError as e:
+            print(f"🔥 Caught CUDA error during generator forward: {e}")
+            raise
 
         # Fake Detection and Loss
         if self.opt.l1_pre and use_pre_flood_prob > self.opt.l1_pre_init_prob:

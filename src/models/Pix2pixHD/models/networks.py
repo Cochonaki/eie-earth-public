@@ -1,31 +1,34 @@
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn import init
-import functools
-from torch.autograd import Variable
-import numpy as np
 from torch.nn.utils import spectral_norm
-#from .spectral import SpectralNorm
+from torchvision import models
+from lpips import LPIPS
 
-###############################################################################
-# Functions
-###############################################################################
+def safe_norm_layer(norm_type, num_features):
+    if norm_type == 'instance':
+        try:
+            return nn.InstanceNorm2d(num_features, affine=False, track_running_stats=False)
+        except Exception as e:
+            print(f"⚠️ Fallback: replacing InstanceNorm2d({num_features}) with GroupNorm(8, {num_features}) due to error: {e}")
+            return nn.GroupNorm(8, num_features)
+    elif norm_type == 'batch':
+        return nn.BatchNorm2d(num_features, affine=True)
+    else:
+        raise NotImplementedError(f"Normalization type {norm_type} not implemented")
+
 def weights_init(m):
     classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        m.weight.data.normal_(0.0, 0.02)
-    elif classname.find('BatchNorm2d') != -1:
-        m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)
+    with torch.no_grad():
+        if classname.find('Conv') != -1 and hasattr(m, 'weight') and m.weight is not None:
+            m.weight.normal_(0.0, 0.02)
+        elif classname.find('BatchNorm2d') != -1 and hasattr(m, 'weight') and m.weight is not None:
+            m.weight.normal_(1.0, 0.02)
+            if hasattr(m, 'bias') and m.bias is not None:
+                m.bias.fill_(0)
 
 def get_norm_layer(norm_type='instance'):
-    if norm_type == 'batch':
-        norm_layer = functools.partial(nn.BatchNorm2d, affine=True)
-    elif norm_type == 'instance':
-        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False)
-    else:
-        raise NotImplementedError('normalization layer [%s] is not found' % norm_type)
-    return norm_layer
+    return lambda num_features: safe_norm_layer(norm_type, num_features)
 
 def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_global=9, n_local_enhancers=1, 
              n_blocks_local=3, norm='instance', gpu_ids=[]):    
@@ -80,25 +83,38 @@ class GANLoss(nn.Module):
         if use_lsgan:
             self.loss = nn.MSELoss()
         else:
-            self.loss = nn.BCELoss()
+            self.loss = nn.BCEWithLogitsLoss()
 
     def get_target_tensor(self, input, target_is_real):
-        target_tensor = None
         if target_is_real:
             create_label = ((self.real_label_var is None) or
                             (self.real_label_var.numel() != input.numel()))
             if create_label:
-                real_tensor = self.Tensor(input.size()).fill_(self.real_label)
-                self.real_label_var = Variable(real_tensor, requires_grad=False)
+                real_tensor = torch.full(input.size(), self.real_label, device=input.device, dtype=input.dtype)
+                self.real_label_var = real_tensor.detach()
             target_tensor = self.real_label_var
         else:
             create_label = ((self.fake_label_var is None) or
                             (self.fake_label_var.numel() != input.numel()))
             if create_label:
-                fake_tensor = self.Tensor(input.size()).fill_(self.fake_label)
-                self.fake_label_var = Variable(fake_tensor, requires_grad=False)
+                fake_tensor = torch.full(input.size(), self.fake_label, device=input.device, dtype=input.dtype)
+                self.fake_label_var = fake_tensor.detach()
             target_tensor = self.fake_label_var
         return target_tensor
+
+    def forward(self, input, target_is_real):
+        if isinstance(input[0], list):
+            loss = 0
+            for input_i in input:
+                pred = input_i[-1]
+                target_tensor = self.get_target_tensor(pred, target_is_real)
+                loss += self.loss(pred, target_tensor)
+            return loss
+        else:
+            pred = input[-1]
+            target_tensor = self.get_target_tensor(pred, target_is_real)
+            return self.loss(pred, target_tensor)
+
 
     def __call__(self, input, target_is_real):
         if isinstance(input[0], list):
@@ -211,7 +227,9 @@ class GlobalGenerator(nn.Module):
         self.model = nn.Sequential(*model)
             
     def forward(self, input):
-        return self.model(input)             
+        print("🚨 GlobalGenerator input shape:", input.shape)
+        return self.model(input)
+          
         
 # Define a resnet block
 class ResnetBlock(nn.Module):
@@ -429,8 +447,6 @@ class Vgg19(torch.nn.Module):
         out = [h_relu1, h_relu2, h_relu3, h_relu4, h_relu5]
         return out
     
-from torchvision import models
 
-# from lpips_pytorch import LPIPS, lpips
 
     
