@@ -1,20 +1,22 @@
-name: eie_vision
+name: eie_vision_new
 channels:
-  - defaults
+  - nvidia
   - pytorch
-  - anaconda
   - conda-forge
+  - defaults
 dependencies:
-  - python=3.7
-  - scipy=1.2.0
+  - python=3.10
   - pip
+  # - pytorch=2.2  # Or latest stable version
+  - pytorch             # latest stable version (i.e. installed 2.5.1 in 05/2025)
+  - torchvision
+  - pytorch-cuda=12.1   # Compatible with Ioannis' NVIDIA driver (535)
+  - scipy
+  - ipykernel
+  - jupytext
   - pip:
-    - torch==1.4.0 # or 1.6.0
-    - torchvision==0.5.0 # or 0.7.0
-    - dominate
-    - lpips
-    - tensorboardX
-    - tensorboard
-    - crc32c
-#    - mlflow>=1.0
-#    - pytorch-lightning==0.8.3
+      - dominate
+      - lpips
+      - tensorboardX
+      - tensorboard
+      - crc32c
