@@ -227,7 +227,7 @@ class GlobalGenerator(nn.Module):
         self.model = nn.Sequential(*model)
             
     def forward(self, input):
-        print("🚨 GlobalGenerator input shape:", input.shape)
+        # print("🚨 GlobalGenerator input shape:", input.shape)
         return self.model(input)
           
         

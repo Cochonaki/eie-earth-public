@@ -14,10 +14,10 @@ import util.util as util
 def lcm(a, b): return abs(a * b) // math.gcd(a, b) if a and b else 0
 
 # Print environment info
-print(torch.__version__)
-print(torch.version.cuda)
-print(torch.backends.cudnn.version())
-print(torch.cuda.memory_summary())
+print(f"torch.version = {torch.__version__}")
+print(f"torch.version.cuda = {torch.version.cuda}")
+print(f"torch.backends.cudnn.version() = {torch.backends.cudnn.version()}")
+print(f"torch.cuda.memory_summary(): \n {torch.cuda.memory_summary()}")
 
 # Parse options
 opt = TrainOptions().parse()

@@ -168,7 +168,7 @@ class Pix2PixHDModel(BaseModel):
         #We flip a coin to decide if we train against the post-flood or pre-flood
         use_pre_flood_prob = random.uniform(0, 1)
 
-        print(f"🚨 GlobalGenerator input shape: {input_label.shape}")
+        # print(f"🚨 GlobalGenerator input shape: {input_label.shape}")
 
         # Fake Generation
         if self.use_features:
@@ -181,7 +181,7 @@ class Pix2PixHDModel(BaseModel):
             else:
                 input_concat = input_label
         try:
-            print(f"🚨 input_concat: dtype={input_concat.dtype}, device={input_concat.device}, shape={input_concat.shape}")
+            # print(f"🚨 input_concat: dtype={input_concat.dtype}, device={input_concat.device}, shape={input_concat.shape}")
             fake_image = self.netG.forward(input_concat)
         except RuntimeError as e:
             print(f"🔥 Caught CUDA error during generator forward: {e}")
